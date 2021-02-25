@@ -1,0 +1,108 @@
+https://upcloud.com/community/tutorials/get-started-wireguard-vpn/
+https://www.wireguard.com/install/
+
+========== SERVER ==========
+
+ip a | grep inet
+	"Copy the IP Address down somewhere." 
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install wireguard -y
+sudo nano /etc/sysctl.conf
+	[CTRL + w]
+		net.ipv4.ip_forward
+			Remove '#'
+	[CTRL + s]
+	[CTRL + x]
+sudo sysctl -p
+sudo apt install ufw -y
+sudo ufw allow ssh
+sudo ufw allow 51820/udp
+sudo ufw enable
+	y
+sudo ufw status
+sudo su
+cd /etc/wireguard
+umask 077
+wg genkey | tee privatekey | wg pubkey > publickey
+cat privatekey 
+	"Copy the key somewhere."
+cat publickey 
+	"Copy the key somewhere."
+sudo nano /etc/wireguard/wg0.conf
+	##########
+	[Interface]
+	PrivateKey = <contents-of-server-privatekey>
+	Address = 10.0.0.1/24
+	PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+	PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+	ListenPort = 51820
+	
+	[Peer]
+	PublicKey = <contents-of-client-publickey>
+	AllowedIPs = 10.0.0.2/32
+	##########
+	"Paste the appropriate keys."
+		<contents-of-server-privatekey>
+		<contents-of-client-publickey>
+	[CTRL + s]
+	[CTRL + x]
+wg-quick up wg0
+wg show
+systemctl enable wg-quick@wg0
+sudo apt-get update && sudo apt-get upgrade -y
+sudo modprobe wireguard
+sudo reboot
+
+========== CENTOS8 CLIENT ==========
+
+sudo yum update -y
+sudo yum install elrepo-release epel-release -y
+sudo yum install kmod-wireguard wireguard-tools -y
+sudo su
+cd /etc/wireguard
+sudo nano /etc/wireguard/wg0.conf
+	##########
+	[Interface]
+	Address = 10.0.0.2/32
+	PrivateKey = <contents-of-client-privatekey>
+	DNS = 1.1.1.1
+	
+	[Peer]
+	PublicKey = <contents-of-server-publickey>
+	Endpoint = <server-public-ip>:51820
+	AllowedIPs = 0.0.0.0/0, ::/0
+	##########
+	"Paste the appropriate items."
+		<contents-of-client-privatekey>
+		<contents-of-server-publickey>
+		<server-public-ip>
+	[CTRL + s]
+	[CTRL + x]
+sudo sudo wg-quick up wg0
+wg show
+exit
+
+========== START-WG.sh ==========
+
+mkdir /home/cpt/scripts
+sudo nano /home/cpt/scripts/start-wg.sh
+	##########
+	#!/bin/bash
+
+	sudo wg-quick up wg0
+	##########
+	[CTRL + s]
+	[CTRL + x]
+sudo chmod /home/cpt/scripts/start-wg.sh +x
+
+========== STOP-WG.sh ==========
+
+sudo nano /home/cpt/scripts/stop-wg.sh
+	##########
+	#!/bin/bash
+
+	sudo wg-quick down wg0
+	##########
+	[CTRL + s]
+	[CTRL + x]
+sudo chmod /home/cpt/scripts/start-wg.sh +x
